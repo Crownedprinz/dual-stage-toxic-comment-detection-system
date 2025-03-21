@@ -293,12 +293,3 @@ print(f"F1 Score: {f1}")
 print(f"Confusion Matrix:\n{conf_matrix}")
 tn, fp, fn, tp = conf_matrix.ravel()
 print(tn, fp, fn, tp)
-
-# Saving the model
-trainer.save_model("./saved_model")
-
-# Saving the tokenizer
-tokenizer.save_pretrained("./saved_model")
-
-
-
