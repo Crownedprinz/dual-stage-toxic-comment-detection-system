@@ -293,3 +293,4 @@ print(f"F1 Score: {f1}")
 print(f"Confusion Matrix:\n{conf_matrix}")
 tn, fp, fn, tp = conf_matrix.ravel()
 print(tn, fp, fn, tp)
+
