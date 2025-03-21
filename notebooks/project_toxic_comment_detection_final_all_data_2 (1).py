@@ -294,5 +294,3 @@ print(f"Confusion Matrix:\n{conf_matrix}")
 tn, fp, fn, tp = conf_matrix.ravel()
 print(tn, fp, fn, tp)
 
-
-
