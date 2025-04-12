@@ -170,4 +170,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 raw_data/jigsaw_unintended/
-processed_data/jigsaw_unintended/
+processed_data/
