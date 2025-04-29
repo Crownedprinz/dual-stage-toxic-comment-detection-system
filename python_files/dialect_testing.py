@@ -104,28 +104,18 @@ def normalize_features(X):
     std = np.std(X, axis=0) + 1e-8  # Add small epsilon to avoid division by zero
     return (X - mean) / std
 
-def main():
-    # Load GloVe embeddings
-    print("Loading GloVe embeddings...")
-    glove_model = api.load("glove-wiki-gigaword-300")
+def analyze_model(model_path: str, model_name: str, glove_model, sae_samples: list, aae_samples: list) -> dict:
+    """Analyze a single model's dialect bias"""
+    print(f"\n=== Analyzing {model_name} ===")
     
-    # Load model and initialize feature extractor
+    # Load model
     print("Loading model...")
-    model = load_model('/Users/crownedprinz/Documents/Projects/Python/dual-stage-toxic-comment-detection-system/models/dnnModel.keras')
+    model = load_model(model_path)
     print("\nModel Summary:")
     model.summary()
-    print("\nModel Config:")
-    print(model.get_config())
-    print(f"Model input shape: {model.input_shape}")
-    print(f"Model output shape: {model.output_shape}")
+    
+    # Initialize feature extractor
     extractor = FeatureExtractor(glove_model)
-    
-    # Load dialect samples
-    sae_samples, aae_samples = load_dialect_samples('/Users/crownedprinz/Documents/Projects/Python/dual-stage-toxic-comment-detection-system/raw_data/Dialect Dataset/sae_samples.txt', '/Users/crownedprinz/Documents/Projects/Python/dual-stage-toxic-comment-detection-system/raw_data/Dialect Dataset/aave_samples.txt')
-    
-    # Check feature dimensions
-    X_sae_sample = extractor.get_combined_features(sae_samples[0])
-    print(f"Feature vector shape: {X_sae_sample.shape}")
     
     # Extract and normalize features
     X_sae = np.vstack([extractor.get_combined_features(text) for text in sae_samples])
@@ -138,25 +128,21 @@ def main():
     # Verify normalized features
     verify_features(X_sae, X_aae)
     
-    # Adjust threshold for more balanced predictions
+    # Get predictions
     raw_preds_sae, preds_sae = predict_with_threshold(model, X_sae, threshold=0.5)
     raw_preds_aae, preds_aae = predict_with_threshold(model, X_aae, threshold=0.5)
     
-    print("\nRaw SAE Predictions:")
+    # Analyze predictions
+    print("\nSAE Predictions:")
     verify_predictions(raw_preds_sae)
-    print("\nThresholded SAE Predictions:")
-    verify_predictions(preds_sae)
-    
-    print("\nRaw AAE Predictions:")
+    print("\nAAE Predictions:")
     verify_predictions(raw_preds_aae)
-    print("\nThresholded AAE Predictions:")
-    verify_predictions(preds_aae)
     
     # Compute metrics
     metrics = compute_bias_metrics(preds_sae, preds_aae)
     
-    # Print enhanced results
-    print("\n=== Enhanced Dialect Bias Analysis ===")
+    # Print results
+    print(f"\n=== {model_name} Dialect Bias Analysis ===")
     print(f"Average toxicity scores:")
     print(f"  SAE: {metrics['mean_sae']:.3f}")
     print(f"  AAE: {metrics['mean_aae']:.3f}")
@@ -164,8 +150,53 @@ def main():
     print(f"  SAE: {metrics['high_conf_sae']*100:.1f}%")
     print(f"  AAE: {metrics['high_conf_aae']*100:.1f}%")
     
-    # Plot enhanced results
-    plot_bias_results(metrics, raw_preds_sae, raw_preds_aae, 'dialect_bias_results.png')
+    # Plot results
+    plot_bias_results(metrics, raw_preds_sae, raw_preds_aae, f'dialect_bias_results_{model_name}.png')
+    
+    return metrics
+
+def main():
+    # Load GloVe embeddings
+    print("Loading GloVe embeddings...")
+    glove_model = api.load("glove-wiki-gigaword-300")
+    
+    # Load dialect samples
+    sae_samples, aae_samples = load_dialect_samples(
+        '/Users/crownedprinz/Documents/Projects/Python/dual-stage-toxic-comment-detection-system/raw_data/Dialect Dataset/sae_samples.txt',
+        '/Users/crownedprinz/Documents/Projects/Python/dual-stage-toxic-comment-detection-system/raw_data/Dialect Dataset/aave_samples.txt'
+    )
+    
+    # Define models to test
+    models = {
+        'dnn_model': '/Users/crownedprinz/Documents/Projects/Python/dual-stage-toxic-comment-detection-system/models/dnnModel.keras',
+        'advanced_dnn': '/Users/crownedprinz/Documents/Projects/Python/dual-stage-toxic-comment-detection-system/models/toxic_comment_model.h5'
+    }
+    
+    # Analyze each model
+    results = {}
+    for model_name, model_path in models.items():
+        try:
+            print(f"\nTrying to load {model_name} from: {model_path}")
+            if not Path(model_path).exists():
+                print(f"Error: Model file not found at {model_path}")
+                continue
+                
+            results[model_name] = analyze_model(model_path, model_name, glove_model, sae_samples, aae_samples)
+        except Exception as e:
+            print(f"Error analyzing {model_name}:")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error message: {str(e)}")
+            import traceback
+            print("Full traceback:")
+            print(traceback.format_exc())
+    
+    # Compare results
+    print("\n=== Model Comparison ===")
+    for model_name, metrics in results.items():
+        print(f"\n{model_name}:")
+        print(f"  SAE toxic rate: {metrics['toxic_rate_sae']*100:.1f}%")
+        print(f"  AAE toxic rate: {metrics['toxic_rate_aae']*100:.1f}%")
+        print(f"  Bias (AAE-SAE): {metrics['mean_difference']*100:.1f}%")
 
 if __name__ == "__main__":
     main()
